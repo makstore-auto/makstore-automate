@@ -62,6 +62,7 @@ Usage: same GOOGLE_CREDENTIALS env as generate_xml.py.
 import csv
 import json
 import os
+import re
 
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -95,6 +96,23 @@ HANDLING_DISPATCH_BY_SUPPLIER = {
     "AliExpress": ("5", "5"),
 }
 FALLBACK_HANDLING_DISPATCH = ("5", "5")
+
+# Descriptions are capped for the upload file: Excel's 32,767-char cell
+# limit makes longer cells render as shattered rows (228 in one real
+# export), and 40k-char eBay template blobs are terrible product copy
+# anyway. The Sheet keeps the full text; only the CSV is capped. The cut
+# lands on a tag/word boundary so no broken HTML ships.
+EXPORT_DESCRIPTION_MAX = 30000
+
+
+def cap_description(text):
+    text = str(text or "")
+    if len(text) <= EXPORT_DESCRIPTION_MAX:
+        return text
+    cut = text[:EXPORT_DESCRIPTION_MAX]
+    cut = re.sub(r"<[^>]*$", "", cut)          # drop a half-open tag at the cut
+    cut = re.sub(r"\s+\S*$", "", cut)          # end on a whole word
+    return cut
 
 
 def handling_dispatch(row):
@@ -147,7 +165,7 @@ def build_row(row):
     the mapping is testable without Google credentials."""
     sku = str(row.get("SKU") or "").strip()
     title = str(row.get("Title") or "").strip()
-    description = str(row.get("Description") or "").strip() or title
+    description = cap_description(str(row.get("Description") or "").strip() or title)
     values = [
         sku,
         title[:150],
@@ -177,7 +195,7 @@ def build_parent_row(row):
     shared descriptive fields only - no price, stock, EAN or variant pair
     (mirrors the parent rows in OnBuy's own example template)."""
     title = str(row.get("Title") or "").strip()
-    description = str(row.get("Description") or "").strip() or title
+    description = cap_description(str(row.get("Description") or "").strip() or title)
     return [
         parent_sku(row.get("Variant Group")),
         title[:150],
@@ -211,6 +229,7 @@ def main():
     skipped_already = 0
     bad_skus = []
     no_category = []
+    no_image = []
     dup_skus = []
     extra_axes = []
     emitted_parents = set()
@@ -242,6 +261,11 @@ def main():
             seen_digits.add(sku_numeric_part(sku))
             if not str(row.get("Category") or "").strip():
                 no_category.append(sku)
+                continue
+            if not str(row.get("Image URL") or "").strip():
+                # OnBuy requires a Default Image - an imageless product would
+                # bounce at import, so it stays out and gets named below.
+                no_image.append(sku)
                 continue
             group = str(row.get("Variant Group") or "").strip() if VARIANTS_ENABLED else ""
             if group and group not in emitted_parents:
@@ -293,6 +317,9 @@ def main():
     if no_category:
         print(f"SKIPPED {len(no_category)} row(s) with no Category yet - wait for the next sync "
               f"run or set one manually: {', '.join(no_category)}")
+    if no_image:
+        print(f"SKIPPED {len(no_image)} row(s) with no image (OnBuy requires one) - replace the "
+              f"product or wait for a re-fetch: {', '.join(no_image)}")
     if dup_skus:
         print(f"SKIPPED {len(dup_skus)} row(s) whose SKU digits duplicate an earlier row's barcode "
               f"(same barcode = same product on OnBuy) - give each row its own: {', '.join(dup_skus)}")
