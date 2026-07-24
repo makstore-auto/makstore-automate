@@ -176,46 +176,6 @@ def normalize_brand(brand):
     return brand
 
 
-# ================= PROTECTED BRANDS (OnBuy authorisation required) =================
-# OnCommerce's Protected Brands list (user-supplied PDF, 2026-07-23): products
-# of these brands must never be listed without Proof of Authorisation - so the
-# pipeline never fills them and flags the row instead. The list lives in
-# protected_brands.txt (one name per line, employee-editable). Matching folds
-# both sides to lowercase alphanumerics (diacritic/punctuation-proof) and
-# catches sub-brand forms ("Adidas Originals" falls under "Adidas") with a
-# word boundary so "Crocsville" never matches "Crocs".
-
-def _brand_key(name):
-    return re.sub(r"[^a-z0-9]", "", str(name or "").lower())
-
-
-def _load_protected_brands():
-    try:
-        with open("protected_brands.txt", encoding="utf-8") as f:
-            names = [l.strip() for l in f if l.strip()]
-    except FileNotFoundError:
-        logger.warning("protected_brands.txt not found - protected-brand guard inactive this run")
-        return {}
-    return {_brand_key(n): n for n in names if _brand_key(n)}
-
-
-PROTECTED_BRANDS = _load_protected_brands()
-
-
-def protected_brand_match(brand):
-    """The protected brand this product's brand falls under, or None."""
-    key = _brand_key(brand)
-    if not key or key == "unbranded":
-        return None
-    if key in PROTECTED_BRANDS:
-        return PROTECTED_BRANDS[key]
-    text = str(brand or "").strip()
-    for k, display in PROTECTED_BRANDS.items():
-        if key.startswith(k) and re.match(re.escape(display) + r"(?![A-Za-z0-9])", text, re.IGNORECASE):
-            return display
-    return None
-
-
 def dedupe_rows_by_sku(rows, what):
     """Postgres/PostgREST rejects a whole bulk upsert if two rows in the same
     call share the same SKU (the conflict target) - "ON CONFLICT DO UPDATE
@@ -981,7 +941,6 @@ def main():
     ali_unconfigured_rows = 0  # AliExpress rows on a store whose Ali keys aren't set up
     duplicate_link_rows_flagged = 0  # rows repeating an earlier row's supplier product
     invalid_sku_rows = 0  # SKUs whose digits fail the GS1 check-digit test
-    protected_brand_rows = 0  # products of brands OnBuy protects (authorisation required)
     duplicate_sku_rows_flagged = 0  # rows whose SKU digits repeat an earlier row's barcode
 
     # ================= DUPLICATE SKU DETECTION (whole sheet, by digits) =================
@@ -1332,36 +1291,6 @@ def main():
             # A variant that goes out of stock is still the same variant.
             variant_group = str(row.get("Variant Group") or "")
             variant_detail = str(row.get("Variant") or "")
-
-        _protected = protected_brand_match(brand)
-        if _protected:
-            # Listing this brand without authorisation risks the OnBuy
-            # account - flag and write NOTHING else for the row. Self-heals
-            # like every flag: replace the link with a different product and
-            # the next fetch clears it.
-            protected_brand_rows += 1
-            now_str = datetime.now(PK_TZ).strftime("%Y-%m-%d %H:%M:%S")
-            pb_updates = [
-                {"range": f"{col_letter(col_map['Status'])}{i}", "values": [["PROTECTED BRAND"]]},
-                {"range": f"{col_letter(col_map['Last Checked Time'])}{i}", "values": [[now_str]]},
-            ]
-            if "Brand" in col_map:
-                pb_updates.append({"range": f"{col_letter(col_map['Brand'])}{i}", "values": [[str(brand)]]})
-            if "Supplier" in col_map:
-                pb_updates.append({"range": f"{col_letter(col_map['Supplier'])}{i}", "values": [[supplier]]})
-            if "Change Alert" in col_map:
-                pb_updates.append({"range": f"{col_letter(col_map['Change Alert'])}{i}",
-                                   "values": [[f"PROTECTED BRAND ({_protected}) - OnBuy requires Proof of "
-                                               "Authorisation to sell this brand. Remove this product "
-                                               "(tick Remove) or replace the link with a different product"]]})
-            if "Change Time" in col_map:
-                pb_updates.append({"range": f"{col_letter(col_map['Change Time'])}{i}", "values": [[now_str]]})
-            all_sheet_updates.extend(pb_updates)
-            highlight_requests.append(row_highlight_request(sheet.id, i, num_cols, active=True, pending_change=True))
-            logger.warning("Row %d: brand %r is on the protected list (%s) - flagged PROTECTED BRAND and skipped",
-                           i, brand, _protected)
-            time.sleep(0.2)
-            continue
 
         # ================= SKU (must be entered manually - OnBuy requires unique
         # SKUs, and two different sourcing links can share the same barcode/item
@@ -1906,10 +1835,9 @@ def main():
     logger.info("Updated rows: %d", updated_count)
     logger.info("Change alerts raised: %d, variants needing a choice: %d, unreadable links: %d, "
                 "missing SKUs: %d, invalid SKUs: %d, duplicate SKUs: %d, duplicate links: %d, "
-                "protected brands: %d, rows removed by request: %d, AliExpress rows awaiting keys: %d",
+                "rows removed by request: %d, AliExpress rows awaiting keys: %d",
                 len(change_log), variant_rows, unreadable_rows, missing_sku_rows, invalid_sku_rows,
-                duplicate_sku_rows_flagged, duplicate_link_rows_flagged, protected_brand_rows,
-                len(removal_rows), ali_unconfigured_rows)
+                duplicate_sku_rows_flagged, duplicate_link_rows_flagged, len(removal_rows), ali_unconfigured_rows)
     logger.info("OnBuy: %d created, %d updated, %d deferred (awaiting go-live), %d postponed (transient), "
                  "%d failed, %d removed (brand rejected)",
                  onbuy_created, onbuy_updated, onbuy_deferred, onbuy_postponed, onbuy_failed, onbuy_removed)
