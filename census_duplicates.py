@@ -5,6 +5,7 @@ live listing and report: SKUs appearing on more than one listing, and
 groups of listings whose names are near-identical under different SKUs.
 Changes nothing."""
 import logging
+import os
 import re
 from collections import defaultdict
 
@@ -48,6 +49,18 @@ def main():
             break
         offset += limit
     log.info("live listings: %d", len(items))
+
+    bare = [s.strip() for s in (os.getenv("TWIN_SKUS") or "").split(",") if s.strip()]
+    if bare:
+        # For each bare SKU, print every listing whose SKU starts with those
+        # digits - reveals the decorated original next to the bare duplicate.
+        for b in bare:
+            hits = [t for t in items if t[0] == b or t[0].startswith(b + "-")]
+            for t in hits:
+                log.info("TWIN|%s|sku=%s|listing=%s|opc=%s|created=%s|%s",
+                         b, t[0], t[2], t[3], t[5], t[1][:55])
+            if not hits:
+                log.info("TWIN|%s|NO LISTING AT ALL", b)
 
     by_sku = defaultdict(list)
     for t in items:
