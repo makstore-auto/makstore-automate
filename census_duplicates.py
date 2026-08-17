@@ -81,10 +81,10 @@ def main():
     name_dups = {k: v for k, v in by_name.items()
                  if len(v) > 1 and len({t[0] for t in v}) > 1}
     log.info("identical names under DIFFERENT SKUs: %d group(s)", len(name_dups))
-    for _, lst in sorted(name_dups.items())[:40]:
+    for gi, (_, lst) in enumerate(sorted(name_dups.items()), 1):
         for t in lst:
-            log.info("  DUPNAME|%s|listing=%s|opc=%s|created=%s|%s",
-                     t[0], t[2], t[3], t[5], t[1][:60])
+            log.info("  DUPNAME|g%d|%s|listing=%s|opc=%s|price=%s|created=%s|%s",
+                     gi, t[0], t[2], t[3], t[4], t[5], t[1][:70])
 
 
 if __name__ == "__main__":
