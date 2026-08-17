@@ -50,6 +50,18 @@ def main():
         offset += limit
     log.info("live listings: %d", len(items))
 
+    # A "twin" is only found when the original's SKU carries the bare digits
+    # plus a suffix (-AMM, -ahm-29). When the dashboard SKU is unrelated to
+    # the backup-record SKU, the twin lookup below finds nothing even though
+    # an original exists - so search by NAME too before concluding a listing
+    # is unique. Substrings are matched against the normalized name.
+    for term in [t.strip().lower() for t in (os.getenv("NAME_GREP") or "").split(",") if t.strip()]:
+        hits = [t for t in items if term in norm(t[1])]
+        log.info("NAMEGREP|%s|%d hit(s)", term, len(hits))
+        for t in hits:
+            log.info("  NAMEHIT|%s|sku=%s|listing=%s|opc=%s|price=%s|created=%s|%s",
+                     term, t[0], t[2], t[3], t[4], t[5], t[1][:70])
+
     bare = [s.strip() for s in (os.getenv("TWIN_SKUS") or "").split(",") if s.strip()]
     if bare:
         # For each bare SKU, print every listing whose SKU starts with those
