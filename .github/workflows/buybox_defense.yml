@@ -1,0 +1,58 @@
+name: Buy Box Defense
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "yes = classify + write BuyBox tab only; no = also push price changes"
+        required: false
+        default: "yes"
+      undercut_pence:
+        description: "Pence below the Buy Box price to reprice to"
+        required: false
+        default: "1"
+      check_batch:
+        description: "SKUs per check-winning call"
+        required: false
+        default: "100"
+  schedule:
+    - cron: "17 4 * * *"   # daily, live (API-driven since 2026-08-21: GET /v2/listings/check-winning)
+
+# Reads/writes OnBuy listings - shares the API quota/token with the sync,
+# so queue behind it rather than overlapping (see run.yml for why).
+concurrency:
+  group: onbuy-api
+  cancel-in-progress: false
+
+jobs:
+  defend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Defend Buy Box
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          ONBUY_USE_SANDBOX: ${{ vars.ONBUY_USE_SANDBOX }}
+          ONBUY_CONSUMER_KEY: ${{ secrets.ONBUY_CONSUMER_KEY }}
+          ONBUY_SECRET_KEY: ${{ secrets.ONBUY_SECRET_KEY }}
+          ONBUY_TEST_CONSUMER_KEY: ${{ secrets.ONBUY_TEST_CONSUMER_KEY }}
+          ONBUY_TEST_SECRET_KEY: ${{ secrets.ONBUY_TEST_SECRET_KEY }}
+          ONBUY_SELLER_ID: ${{ secrets.ONBUY_SELLER_ID }}
+          ONBUY_SITE_ID: ${{ secrets.ONBUY_SITE_ID }}
+          ONBUY_API_PUSH_ENABLED: ${{ vars.ONBUY_API_PUSH_ENABLED }}
+          DRY_RUN: ${{ github.event_name == 'schedule' && '0' || (inputs.dry_run == 'no' && '0' || '1') }}
+          UNDERCUT_PENCE: ${{ inputs.undercut_pence || '1' }}
+          CHECK_BATCH: ${{ inputs.check_batch || '100' }}
+        run: python buybox_defense.py
