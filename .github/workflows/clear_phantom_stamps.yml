@@ -1,0 +1,37 @@
+name: Clear Phantom Stamps
+
+on:
+  workflow_dispatch:
+    inputs:
+      corrected_skus:
+        description: "The now-correct SKUs whose rows carry phantom stamps"
+        required: true
+      old_skus:
+        description: "The old wrong SKUs whose mirror rows should be purged"
+        required: false
+        default: ""
+      dry_run:
+        description: "yes = list; no = clear"
+        required: false
+        default: "yes"
+
+jobs:
+  clear:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Clear
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          CORRECTED_SKUS: ${{ inputs.corrected_skus }}
+          OLD_SKUS: ${{ inputs.old_skus }}
+          DRY_RUN: ${{ inputs.dry_run == 'no' && '0' || '1' }}
+        run: python clear_phantom_stamps.py
