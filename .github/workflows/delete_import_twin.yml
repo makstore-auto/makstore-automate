@@ -10,6 +10,10 @@ on:
         description: "yes = list; no = delete"
         required: false
         default: "yes"
+      delete_row:
+        description: "Explicit row number to delete when both pair rows have URLs"
+        required: false
+        default: "0"
 
 jobs:
   delete:
@@ -26,5 +30,6 @@ jobs:
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
           TARGET_SKUS: ${{ inputs.target_skus }}
+          DELETE_ROW: ${{ inputs.delete_row }}
           DRY_RUN: ${{ inputs.dry_run == 'no' && '0' || '1' }}
         run: python delete_import_twin.py

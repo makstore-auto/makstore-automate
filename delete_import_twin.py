@@ -18,6 +18,11 @@ from retry_utils import with_retry
 DRY_RUN = (os.getenv("DRY_RUN") or "1").strip().lower() not in ("0", "no", "false", "")
 SHEET_NAME = "Makstore_Full_Feed_Master"
 TARGETS = {s.strip() for s in (os.getenv("TARGET_SKUS") or "").split(",") if s.strip()}
+# When BOTH rows of a pair carry a Supplier URL the tool refuses to choose;
+# DELETE_ROW names the exact row to remove (it must carry a target SKU and
+# another row must share it) - for deliberate duplicate-entry resolutions
+# (rows 26/97, 2026-08-28).
+DELETE_ROW = int(os.getenv("DELETE_ROW") or "0")
 
 
 def main():
@@ -46,7 +51,12 @@ def main():
             print("  SKIP - no row carries a Supplier URL; cannot tell which is the team's")
             continue
         if not without_url:
-            print("  SKIP - every row has a Supplier URL; refusing to choose")
+            if DELETE_ROW and DELETE_ROW in [rn for rn, _ in pair]:
+                keep = [rn for rn, _ in pair if rn != DELETE_ROW]
+                to_delete.append(DELETE_ROW)
+                print(f"  DELETE row {DELETE_ROW} (explicit DELETE_ROW); keeping {keep}")
+                continue
+            print("  SKIP - every row has a Supplier URL; refusing to choose (set DELETE_ROW to pick)")
             continue
         for rn in without_url:
             to_delete.append(rn)
