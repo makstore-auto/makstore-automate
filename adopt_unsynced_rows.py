@@ -110,7 +110,15 @@ def main():
         if sku in live:
             target = sku
         else:
-            cands = [L for L in by_core.get(digit_core(sku), []) if L != sku]
+            # Makstore's suffix class: the team drops the trailing suffix
+            # number from real dashboard SKUs ("...zzz" vs live
+            # "...zzz-315"), which also changes the digits - so match by
+            # PREFIX first (live SKU starts with the row's SKU), the
+            # ironclad rule for this convention; barcode-core is the
+            # fallback for leading-zero style variants.
+            cands = [L for L in live if L != sku and L.startswith(sku)]
+            if not cands:
+                cands = [L for L in by_core.get(digit_core(sku), []) if L != sku]
             if len(cands) == 1 and not display_use.get(cands[0]):
                 target = cands[0]
             elif cands:
