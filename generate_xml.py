@@ -1635,6 +1635,7 @@ def main():
     # call, 1 token each); the loop reads from this map. A failed fetch
     # leaves those rows untouched this run, like an eBay fetch failure.
     amazon_products, amazon_fetch_failed, ebay_tab_skus = {}, False, set()
+    amazon_asin_rows = {}  # first row seen per ASIN - later ones are duplicates
     amazon_asins = sorted({keepa_client.parse_asin(row.get("Supplier URL"))
                            for _, row in batch if supplier_of(row.get("Supplier URL")) == "Amazon"})
     if amazon_asins:
@@ -1730,6 +1731,15 @@ def main():
         if supplier == "Amazon" and sku in ebay_tab_skus:
             amazon_flag = "Failed: this SKU is already used on the eBay tab - one product per SKU"
             logger.warning("Row %d (SKU %s): %s", i, sku, amazon_flag)
+        elif supplier == "Amazon":
+            # One Amazon product per row: the same ASIN under two SKUs would
+            # create two OnBuy listings of one supplier product (seen live:
+            # one mattress pasted on two rows). First row processed keeps it.
+            _dup_asin = keepa_client.parse_asin(url)
+            _first_row = amazon_asin_rows.setdefault(_dup_asin, i)
+            if _first_row != i:
+                amazon_flag = f"Failed: ASIN {_dup_asin} is already used on row {_first_row} - one Amazon product per row"
+                logger.warning("Row %d (SKU %s): %s", i, sku, amazon_flag)
         # The categoriser reads text; Amazon's category tree is the best
         # hint it can get, so it rides along with the description here only.
         category_text = description if supplier != "Amazon" else f"{description} {ebay_data.get('category_path') or ''}"
@@ -2071,7 +2081,16 @@ def main():
                 logger.info("Row %d (SKU %s): create PAUSED (ONBUY_CREATE_ENABLED=false) - waiting", i, sku)
             except _SkipPushDead:
                 onbuy_skipped_dead += 1
-                sync_status = f"Skipped: {supplier} listing unavailable - replace or remove the link"
+                if supplier == "Amazon":
+                    # Keepa often cannot see a price for one cycle (Amazon
+                    # suppresses the Buy Box; no current New price) even
+                    # though the product page sells fine - the next sweep
+                    # picks it up. Only a persistent skip means the link
+                    # itself needs a look.
+                    sync_status = ("Skipped: no buyable offer visible on Amazon right now - "
+                                   "retried automatically every run; check the link only if this persists")
+                else:
+                    sync_status = "Skipped: eBay listing unavailable - replace or remove the link"
                 logger.info(
                     "Row %d (SKU %s): %s listing unavailable and never created on OnBuy "
                     "- nothing to create, skipping the push", i, sku, supplier)
