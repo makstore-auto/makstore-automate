@@ -1,0 +1,35 @@
+name: Clear Amazon Dup SKUs (one-off)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "List duplicates without clearing (yes/no)"
+        default: "yes"
+      tab:
+        description: "Worksheet to check against the first tab"
+        required: false
+        default: "Amazon"
+
+# Writes Sheet cells - serialize with the syncs like every sheet writer.
+concurrency:
+  group: onbuy-api
+  cancel-in-progress: false
+
+jobs:
+  clear:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Clear duplicate SKUs
+        env:
+          DRY_RUN: ${{ inputs.dry_run == 'no' && '0' || '1' }}
+          SHEET_TAB: ${{ inputs.tab }}
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+        run: python clear_amazon_dup_skus.py
