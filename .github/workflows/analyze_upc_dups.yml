@@ -1,0 +1,22 @@
+name: Analyze UPC Duplicates (read-only)
+
+on:
+  workflow_dispatch:
+
+# Sheet reads only - no writes, no OnBuy - safe alongside anything.
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Analyze
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+        run: python analyze_upc_dups.py
