@@ -1,1 +1,1 @@
-667179353513  # 2026-09-21 source OOS but eBay API answers available - stock held at 0 until link replaced/fixed
+# one SKU per line; the sync skips pushes for protected SKUs (repair holds)
