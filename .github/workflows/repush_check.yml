@@ -1,0 +1,39 @@
+name: Re-push Check (existence test by touching, dry-run by default)
+
+on:
+  workflow_dispatch:
+    inputs:
+      skus_file:
+        description: "Repo path: SKUs to re-push (one per line)"
+        required: true
+      dry_run:
+        description: "yes = plan only, no = push the sheet's own price/stock"
+        required: true
+        default: "yes"
+
+concurrency:
+  group: onbuy-api
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Re-push
+        env:
+          SKUS_FILE: ${{ inputs.skus_file }}
+          DRY_RUN: ${{ inputs.dry_run == 'yes' && '1' || '0' }}
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          ONBUY_USE_SANDBOX: ${{ vars.ONBUY_USE_SANDBOX }}
+          ONBUY_CONSUMER_KEY: ${{ secrets.ONBUY_CONSUMER_KEY }}
+          ONBUY_SECRET_KEY: ${{ secrets.ONBUY_SECRET_KEY }}
+          ONBUY_SELLER_ID: ${{ secrets.ONBUY_SELLER_ID }}
+          ONBUY_SITE_ID: ${{ secrets.ONBUY_SITE_ID }}
+        run: python repush_check.py
