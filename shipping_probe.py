@@ -28,7 +28,7 @@ import fees  # noqa: E402
 import pricing  # noqa: E402
 import sheet_tabs  # noqa: E402
 from generate_xml import (_fetch_item_group_as_item, _is_item_group_error,  # noqa: E402
-                          _to_float, get_ebay_token)
+                          _to_float, ebay_shipping_cost, get_ebay_token)
 
 SHEET_NAME = os.getenv("SHEET_NAME") or "Makstore_Full_Feed_Master"
 SAMPLE = int(os.getenv("SAMPLE") or "60")
@@ -50,6 +50,12 @@ def classify_cell(text):
     except ValueError:
         return "free-style text" if t in ("free", "free shipping", "n/a", "none", "0.00", "£0") else "other text"
     return "zero" if v == 0 else "a number > 0"
+
+
+def band(total, rule=None):
+    """The profit % the sync's band logic gives this cost (GTV's depends on the row's fee rule)."""
+    fn = getattr(pricing, "profit_percent_for", None)
+    return fn(total, rule=rule) if fn else pricing.profit_percent(total)
 
 
 def pct(values, q):
@@ -144,7 +150,9 @@ def main():
           "with a buyer location for the ones whose cost came back unknown")
     outcome, states_plain, states_ctx = {}, {}, {}
     cost_types, option_types, n_options, paid, deltas, cross_down = {}, {}, [], [], [], 0
+    service_codes, ship_to = {}, {"ships to GB (or no restriction listed)": 0, "excludes GB": 0}
     cells_vs_ebay = {"cell blank": 0, "cell = eBay": 0, "cell differs": 0}
+    sync_view, ctx_gain = {"free": 0, "paid": 0, "not stated": 0}, 0
     for s in sample:
         m = s["url"].split("/itm/")[1]
         item_id = "".join(ch for ch in m if ch.isdigit())
@@ -158,9 +166,17 @@ def main():
             continue
         state, cost = cheapest(item)
         states_plain[state] = states_plain.get(state, 0) + 1
+        quote = ebay_shipping_cost(item)            # exactly what the sync would take from this answer
+        sync_view["not stated" if quote is None else "free" if quote == 0 else "paid"] += 1
         for opt in item.get("shippingOptions") or []:
             cost_types[opt.get("shippingCostType") or "-"] = cost_types.get(opt.get("shippingCostType") or "-", 0) + 1
             option_types[opt.get("type") or "-"] = option_types.get(opt.get("type") or "-", 0) + 1
+            code = str(opt.get("shippingServiceCode") or "-")[:40]
+            service_codes[code] = service_codes.get(code, 0) + 1
+        excluded = [str(x.get("regionName") or x.get("regionId") or "") for x in
+                    ((item.get("shipToLocations") or {}).get("regionExcluded") or [])]
+        ship_to["excludes GB" if any(e.upper() in ("GB", "UK", "UNITED KINGDOM", "GREAT BRITAIN") for e in excluded)
+                else "ships to GB (or no restriction listed)"] += 1
         n_options.append(len(item.get("shippingOptions") or []))
         if state.startswith("unknown"):
             try:
@@ -169,34 +185,38 @@ def main():
                 item2 = None
             st2, cost2 = cheapest(item2)
             states_ctx[st2] = states_ctx.get(st2, 0) + 1
-            if cost is None and cost2 is not None:
-                state, cost = st2, cost2
+            ctx_gain += ebay_shipping_cost(item2) is not None and quote is None
             time.sleep(0.25)
-        if cost is not None:
+        if quote is not None:
             have = s["have_ship"]
             if not have:
                 cells_vs_ebay["cell blank"] += 1
-            elif abs(_to_float(have) - cost) < 0.005:
+            elif have.strip().lower() == "free":
+                cells_vs_ebay["cell = eBay" if quote == 0 else "cell differs"] += 1
+            elif abs(_to_float(have) - quote) < 0.005:
                 cells_vs_ebay["cell = eBay"] += 1
             else:
                 cells_vs_ebay["cell differs"] += 1
-        if state == "paid":
+        if quote:
+            cost = quote
             paid.append(cost)
             rule = fees.rule_for_category_path(s["category"]) if fees.enabled() else None
             c0, c1 = s["cost"], s["cost"] + cost
-            p0 = pricing.price_for_profit(c0, pricing.profit_percent(c0), rule=rule) if rule else \
-                pricing.price_for_profit(c0, pricing.profit_percent(c0))
-            p1 = pricing.price_for_profit(c1, pricing.profit_percent(c1), rule=rule) if rule else \
-                pricing.price_for_profit(c1, pricing.profit_percent(c1))
+            p0 = pricing.price_for_profit(c0, band(c0, rule), rule=rule)
+            p1 = pricing.price_for_profit(c1, band(c1, rule), rule=rule)
             if p0 > 0:
                 deltas.append((p1 / p0 - 1) * 100)
                 cross_down += p1 < p0 - 0.005
     print(f"fetch outcome: {outcome}")
-    print(f"cheapest delivery option, as the sync's own call returns it: {states_plain}")
+    print(f"what the sync would take from those answers (ebay_shipping_cost): {sync_view}")
+    print(f"the same answers, why not stated (raw reading): {states_plain}")
     if states_ctx:
-        print(f"the unknown ones re-asked with a buyer location (London) in X-EBAY-C-ENDUSERCTX: {states_ctx}")
+        print(f"the unknown ones re-asked with a buyer location (London) in X-EBAY-C-ENDUSERCTX: {states_ctx} "
+              f"(would add {ctx_gain} usable quote(s); the sync does NOT send that header)")
     print(f"shippingCostType per option: {cost_types} | option type: {option_types} | "
           f"options per item: min {min(n_options) if n_options else 0}, max {max(n_options) if n_options else 0}")
+    top = sorted(service_codes.items(), key=lambda kv: -kv[1])[:12]
+    print(f"service codes (top {len(top)}): {dict(top)} | ship-to: {ship_to}")
     print(f"the sheet's Shipping Cost cell vs eBay's answer (where eBay's cost is known): {cells_vs_ebay}")
     if paid:
         print(f"paid delivery: {len(paid)} items | fee GBP mean {statistics.mean(paid):.2f}, median "
