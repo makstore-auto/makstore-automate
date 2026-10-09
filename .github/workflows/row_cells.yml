@@ -9,6 +9,10 @@ on:
       skus:
         description: "SKUs, comma-separated, exactly as in the sheet"
         required: true
+      extra_columns:
+        description: "More columns to print, comma-separated (never cost / shipping / profit / fee), e.g. ASIN,Supplier URL"
+        required: false
+        default: ""
 
 jobs:
   cells:
@@ -25,4 +29,5 @@ jobs:
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
           SKUS: ${{ inputs.skus }}
+          EXTRA_COLUMNS: ${{ inputs.extra_columns }}
         run: python row_cells.py

@@ -17,6 +17,13 @@ SHEET_NAME = os.getenv("SHEET_NAME") or "Makstore_Full_Feed_Master"
 WANT = [s.strip() for s in (os.getenv("SKUS") or "").split(",") if s.strip()]
 SHOW = ["Stock", "Status", "Selling Price (£)", "Price Check Flag", "Sync Status", "OnBuy Product Created", "OnBuy Listing Active",
         "Last Updated", "Last Checked Time", "Last OnBuy Sync"]
+# EXTRA_COLUMNS (comma-separated header names): more cells to print, e.g. "ASIN,Supplier URL,Amazon Seller,Amazon Availability,Keepa Updated".
+# Cost / shipping / profit / fee columns are refused: these logs are public.
+_REFUSED = ("cost", "shipping", "profit", "fee")
+for _c in (os.getenv("EXTRA_COLUMNS") or "").split(","):
+    _c = _c.strip()
+    if _c and _c not in SHOW and not any(w in _c.lower() for w in _REFUSED):
+        SHOW.append(_c)
 
 
 def main():
