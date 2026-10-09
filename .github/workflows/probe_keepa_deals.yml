@@ -1,0 +1,30 @@
+name: Probe Keepa Deals (read-only)
+
+# Prints, per ASIN, the price our rule picks next to what Keepa knows about deals, vouchers, list price and the usual price.
+# ASINs are public Amazon ids; no SKU / cost / margin is printed. Reads Keepa only (1-2 tokens per ASIN) - outside the onbuy-api group.
+
+on:
+  workflow_dispatch:
+    inputs:
+      asins:
+        description: "ASINs, comma-separated"
+        required: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Probe
+        env:
+          KEEPA_API_KEY: ${{ secrets.KEEPA_API_KEY }}
+          KEEPA_BUYBOX: ${{ vars.KEEPA_BUYBOX }}
+          KEEPA_UPDATE_HOURS: ${{ vars.KEEPA_UPDATE_HOURS }}
+          ASINS: ${{ inputs.asins }}
+        run: python probe_keepa_deals.py
