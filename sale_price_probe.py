@@ -32,6 +32,9 @@ def main():
         r = onbuy._send("GET", f"{BASE_URL}/listings", what="listing by sku",
                         params={"site_id": onbuy.site_id, "limit": 5, "offset": 0, "filter[sku]": sku}, timeout=60)
         body = r.json() if r.status_code == 200 else {}
+        if n == 0:
+            hdrs = {k: v for k, v in r.headers.items() if any(w in k.lower() for w in ("rate", "limit", "remaining", "retry", "quota", "reset"))}
+            print("rate-limit headers:", hdrs or "none")
         if n == 0 and isinstance(body, dict):
             print("response keys:", {k: (f"[{len(v)} item(s)]" if k == "results" else v) for k, v in body.items()})
         items = (body.get("results") if isinstance(body, dict) else None) or []
