@@ -97,11 +97,21 @@ def main():
             print(f"{name}: n={len(vals)} median {statistics.median(vals):+.1f} | share more than 5% below: {sum(1 for v in vals if v < -5) / len(vals):.0%}"
                   f" | more than 10% below: {sum(1 for v in vals if v < -10) / len(vals):.0%} | more than 20% below: {sum(1 for v in vals if v < -20) / len(vals):.0%}")
             print("   histogram:", band(vals, edges))
-    if below30:
-        lifts = [max(0.0, -v) / (1.0 + v / 100.0) if v < 0 else 0.0 for v in below30]   # % the price would rise if the 30-day average replaced it
-        moved = [x for x in lifts if x > 0.5]
-        print(f"if max(current, 30-day average) replaced the current price: {len(moved)} of {len(lifts)} sampled prices would rise "
-              f"(median rise of those {statistics.median(moved) if moved else 0:.1f}%, max {max(moved) if moved else 0:.1f}%)")
+    # THE RULE IN FORCE (keepa_client.regular_price): max(current, lower of the 30/90-day averages), capped - what the sync now uses as the cost basis
+    lifts = []
+    for asin in sample:
+        p = products.get(asin)
+        if not p:
+            continue
+        price, _seller, _avail, reason = keepa_client.choose_offer(p)
+        if price <= 0:
+            continue
+        usual = keepa_client.regular_price(p, price, reason)
+        lifts.append((usual / price - 1.0) * 100.0)
+    moved = [x for x in lifts if x > 0.0]
+    print(f"regular_price() rule: {len(moved)} of {len(lifts)} sampled prices are lifted to the usual level "
+          f"(median lift of those {statistics.median(moved) if moved else 0:.1f}%, p90 {sorted(moved)[int(len(moved) * 0.9)] if moved else 0:.1f}%, max {max(moved) if moved else 0:.1f}%)")
+    print("   lift histogram:", band(moved, [1, 2, 5, 10, 20, 30]))
 
 
 if __name__ == "__main__":

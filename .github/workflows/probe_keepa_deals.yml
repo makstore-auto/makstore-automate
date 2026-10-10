@@ -25,6 +25,7 @@ jobs:
         env:
           KEEPA_API_KEY: ${{ secrets.KEEPA_API_KEY }}
           KEEPA_BUYBOX: ${{ vars.KEEPA_BUYBOX }}
+          KEEPA_REGULAR_PRICE: ${{ vars.KEEPA_REGULAR_PRICE }}
           KEEPA_UPDATE_HOURS: ${{ vars.KEEPA_UPDATE_HOURS }}
           ASINS: ${{ inputs.asins }}
         run: python probe_keepa_deals.py
