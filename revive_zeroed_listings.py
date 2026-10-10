@@ -129,7 +129,7 @@ def sweep_listings(onbuy):
             sku = str(it.get("sku") or "").strip()
             if sku:
                 out[sku] = (to_float(it.get("price")), int(to_float(it.get("stock"))))
-        if len(items) < limit:
+        if len(items) < limit and not onbuy.more_listings(offset, limit):
             break
         offset += limit
     return out

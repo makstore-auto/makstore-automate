@@ -45,7 +45,7 @@ def main():
                           str(it.get("opc") or ""),
                           str(it.get("price") or ""),
                           str(it.get("created_at") or "")))
-        if len(page) < limit:
+        if len(page) < limit and not onbuy.more_listings(offset, limit):
             break
         offset += limit
     log.info("live listings: %d", len(items))
