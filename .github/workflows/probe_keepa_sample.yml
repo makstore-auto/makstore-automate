@@ -1,0 +1,37 @@
+name: Probe Keepa Sample (read-only)
+
+# Aggregates only (no SKU / ASIN / cost): how many sampled Amazon-tab products carry a deal / voucher and how far the price our rule picks
+# sits below the 30/90-day average and the list price. Reads the sheet and Keepa (about 1-2 tokens per ASIN) - outside the onbuy-api group.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sample_n:
+        description: "How many Amazon-tab ASINs to sample (evenly spaced)"
+        required: false
+        default: "100"
+      tab:
+        description: "Worksheet name"
+        required: false
+        default: "Amazon"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Probe
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          KEEPA_API_KEY: ${{ secrets.KEEPA_API_KEY }}
+          KEEPA_BUYBOX: ${{ vars.KEEPA_BUYBOX }}
+          KEEPA_UPDATE_HOURS: ${{ vars.KEEPA_UPDATE_HOURS }}
+          SAMPLE_N: ${{ inputs.sample_n }}
+          SHEET_TAB: ${{ inputs.tab }}
+        run: python probe_keepa_sample.py
