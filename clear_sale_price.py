@@ -24,12 +24,13 @@ if os.getenv("SKU_FILE"):
 WANT = list(dict.fromkeys(WANT))
 
 # how a listing update can say "no sale price": (name, extra fields merged into the listing item)
+# 2026-10-10 first live test (Makstore 0000089208441-zzz-40): null is accepted but changes nothing; 0 / "" answer "Sale price must be numeric and greater than zero".
+# So the next spellings END the sale instead: a past window, or the sale price lifted to the normal price.
 VARIANTS = [
-    ("sale_price null", {"sale_price": None}),
-    ("sale_price 0", {"sale_price": 0}),
-    ("sale_price empty + dates empty", {"sale_price": "", "sale_start_date": "", "sale_end_date": ""}),
-    ("sale_price null + dates null", {"sale_price": None, "sale_start_date": None, "sale_end_date": None}),
-    ("sale_price 0 + dates null", {"sale_price": 0, "sale_start_date": None, "sale_end_date": None}),
+    ("sale_price null", lambda rec: {"sale_price": None}),
+    ("past window (2026-09-01 .. 2026-09-02)", lambda rec: {"sale_price": rec.get("sale_price"), "sale_start_date": "2026-09-01 00:00:00", "sale_end_date": "2026-09-02 00:00:00"}),
+    ("end date = start date", lambda rec: {"sale_end_date": rec.get("sale_start_date")}),
+    ("sale price = price", lambda rec: {"sale_price": rec.get("price")}),
 ]
 
 
@@ -76,16 +77,17 @@ def main():
             continue
         price, stock = rec.get("price"), rec.get("stock")
         done = False
-        for name, extra in variants:
+        for name, make in variants:
             item = {"sku": sku, "price": price, "stock": stock, "boost_marketing_commission": 0}
-            item.update(extra)
+            item.update(make(rec))
             payload = {"site_id": onbuy.site_id, "seller_id": onbuy.seller_id, "listings": [item]}
             resp = onbuy._send("PUT", f"{BASE_URL}/listings/by-sku", what=f"clear sale {sku}", json=payload, timeout=60)
             print(f"{sku}: variant '{name}' -> HTTP {resp.status_code} {resp.text[:300]}")
             time.sleep(4)
             after = read(onbuy, sku)
             print(f"{sku}: AFTER  {show(after) if after else 'listing not readable'}")
-            if after is not None and not has_sale(after) and str(after.get("price")) == str(price) and after.get("stock") == stock:
+            ended = after is not None and str(after.get("sale_end_date") or "") != str(rec.get("sale_end_date") or "") and str(after.get("sale_end_date") or "") < "2026-10-10"
+            if after is not None and (not has_sale(after) or ended) and str(after.get("price")) == str(price) and after.get("stock") == stock:
                 print(f"{sku}: CLEARED with variant '{name}' (price and stock unchanged)")
                 done = True
                 break
