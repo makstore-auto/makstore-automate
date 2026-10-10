@@ -1,0 +1,68 @@
+# SKUs checked BY HAND on 2026-10-10 (full row title next to the full live page name): the OnBuy page IS this row's product, only worded
+# differently (shared catalogue titles), so the nightly content check must not count them as 'shows another product' and must not zero them.
+# One SKU per line; text after '#' is a note. A listing whose page later turns into a different product must be taken off this list.
+
+5051218627515-AM23  # Professional Mandolin Slicer Vegetable Food Fruit 
+5051502054577  # Shower Head High Pressure Universal 30% Water Savi
+0956791892396-zzz-70  # Epson Expression XP-3200 A4 3-In-1 Multifunction W
+0000542365124-zzz-20  # MENZERNA CUT FORCE PRO 2in1 COMPOUND - HIGH CUTTIN
+0000047539112-zzz-20  # 600W Electric Mini Rice Cooker 1.7L Portable Non S
+3654657576462-zzz-15  # Dual Lens Car Dash Cam with Front And Rear Camera 
+0816982017499-zzz-90  # Wireless weather station with 5 sensors, 5 channel
+0000025781656-zzz-70  # MECOOL KM9 PRO MAX 2GB 32GB 4K Google TV Smart And
+0050036407366-zzz-110  # TeeView TV25QFT-UK 25″ Full HD Smart TV – Tizen, 3
+5051216851615-zzz-32  # Blackview W50PRO New Version Bluetooth Call Smart 
+5060903740590-zzz-8  # 3 WAY GANG PLUG IN UK 13 AMP MAINS SOCKET ADAPTOR 
+0000060912398-zzz-7  # Ultimate Pet Hair Remover Reusable Brush for Sofa 
+0692714833830-zzz-12  # Pet Food water Dispenser Automatic Dog Cat Bowl Di
+0692969513129-zzz-12  # Pet Food water Dispenser Automatic Dog Cat Bowl Di
+0693261367328-zzz-12  # Pet Food water Dispenser Automatic Dog Cat Bowl Di
+0698238865432-zzz-12  # Pet Food water Dispenser Automatic Dog Cat Bowl Di
+5051302673978-ahm-24  # 20 X WOODEN COAT HANGERS SUIT GARMENTS CLOTHES WOO
+0886667176162-zzz-18  # 3 L Thermos Flask Stainless Unbreakable Vacuum Han
+6911188663373-zzz-15  # 1500W Handheld Steamer for Clothes, 300ml Big Capa
+7469928375356-zzz-120  # Russell Hobbs Spectrum 26520 Air Fryer Free Standi
+0761344105638-zzz-42  # 2x18V 5.0Ah Battery for Dewalt DCB180 DCB181 DCB18
+0820945986012-zzz-99  # Outsunny Charcoal Tall Ovan Pizza Maker BBQ Grill 
+5051220116854-zzz-156  # TEFAL S.Steel CLIPSOMINUT PERFECT Pressure cooker 
+8994439501714-zzz  # Smoking Gun Smoke Infuser Meat Smoker For BBQ Cock
+0616908295006-zzz-15  # Digital Alarm Clock Wireless Charger Dock Mirror F
+9345602563326-zzz-47  # 10.26" Wireless CarPlay Android Auto Screen Car Ra
+0134655678519-zzz  # HP Z3700 Silver Wireless USB Mouse X7Q44AA 1200 DP
+0794879720625-zzz-33  # Awatty Kids Smart Watch for Boys Girls, Fashion Sm
+0734077923817-ahm-25  # Airer Clothes Drying Rack, 4-Tier Foldable Clothes
+6134591734977-zzz-7  # LUXTE Cute Kids LED Night Light - Mini LED Desk La
+4251710603647-zzz-12  # Praknu Wooden Kitchen Roll Holder Under Cabinet - 
+0840814171806-zzz-70  # Waterdrop CTF-01 Water Filter Tap, Stainless Steel
+986545765434567-zzz-35  # Russell Hobbs Steam Iron, 3100W, 210 g and min Ext
+5051217113842-zzz-44  # Tefal Ultraglide 2800W Steam Iron, Durilium Solepl
+0523468747459-zzz-27  # Oscanna Rechargeable Glasses Finder, Bluetooth Tra
+7547467764760-zzz-50  # BEOSIOR Lumbar Traction Massager, Electric Inflata
+4853718764193-zzz-85  # Ultrasound Physiotherapy Device,15 Minute Timing +
+0000004568445-zzz-100  # Sage Perfect Press, Sandwich and Panini Press, Bru
+5060175120724-zzz-19  # SONICSCRUBBER Sonic Scrubber Oscillating Scrubbing
+0850047203205-zzz-43  # Cirkul 32oz Clear Plastic Bottle with 2 No Sugar, 
+6911158817010-zzz-56  # Hi-Spec 18V Cordless Power Drill Driver Set with C
+0000037432461-zzz-14  # MorisMos Giant Orca Teddy Stuffed Animal Toy,80 cm
+0000064079547-zzz-140  # Electric Treadmill Easy Folding Treadmill 10 km/h 
+0812887017503-zzz-25  # JLab JBuds Bluetooth Mouse - Rechargeable Wireless
+87654378987654-zzz-16  # BIIB Gifts for Men, 12-in-1 Multi-Tool, Stocking S
+5051219250507-zzz-39  # Giles & Posner EK4082G Deep Fill Pie Maker – Doubl
+0000012726493-zzz-50  # Trynnay Vinyl Record Player with Speaker Vintage T
+5050984328886 -zzz-76  # Caterlite Twin Tank Countertop Deep Fryer, Stainle
+4025112091940-zzz-55  # CHERRY DW 9500 SLIM, Wireless Desktop Set, UK Layo
+8000000659910-zzz-40  # Faszin Ionic Hair Straighteners, 20S Fast Heat Up
+9190758304145-zzz-11  # UGREEN Wireless Mouse, 40dB Silent Computer Mouse,
+5015963413410-zzz-48  # Powkey Power bank 96Wh/30000mAh PD100W with Wirele
+3030058100480-zzz-165  # Cuisinart Ice Cream Maker, Soft serve, Gelato, Sor
+0000096191262-zzz-41  # Aidapt Standing Reading Lamp Boasts Optimum Natura
+8000000882721-zzz-40  # Einhell Electric Garden Strimmer 450W 30cm Cutting
+3426470275071-zzz-18  # Pirex Food Storage Container, Multicolor, 30x23x9c
+8000002253314-zzz-37  # UGEE M708 Drawing Tablet, 10*6 inch, 16k Sensitivi
+5031470207236-zzz  # Xootz Kids BMX Scooter for Kids Ages 5-12, Big Whe
+5051222490693-zzz  # Dupray Plus Neat Steam Cleaner Non-Stop & Refill A
+0885334826188-zzz  # Salter Coffee & Spice Grinder, Electric, 200 W, 60
+3032654659669-zzz-14  # Didiseaon 10pcs Stainless Steel Communion Cup Holy
+0798643730612-zzz-22  # Bonsenkitchen Vacuum Sealer, 4 Modes, Multi-Functi
+5051222807965-zzz-45  # SAIJI Laptop Bed Tray Table - Adjustable Lap Desk 
+5051218520434-zzz-85  # Flymo EasiStore 300R 30cm Corded Electric wheeled 
