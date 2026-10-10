@@ -21,6 +21,7 @@ SKUS = [s.strip() for s in (os.getenv("SKUS") or "").split(",") if s.strip()]
 SWEEP = (os.getenv("SWEEP") or "").strip().lower() in ("1", "yes", "true")
 SAMPLE = int(os.getenv("SAMPLE") or "25")
 DUMP = (os.getenv("DUMP") or "").strip()
+FILTERS = [f.strip() for f in (os.getenv("FILTERS") or "").split(";") if "=" in f]      # "on_sale=1;sale_price=1": which listing filters does the API know?
 SALE_KEYS = ("price", "stock", "sale_price", "sale_start_date", "sale_end_date", "created_at", "updated_at", "product_listing_id", "opc", "boost_marketing_commission")
 
 
@@ -45,6 +46,20 @@ def main():
         h = hit[0]
         print(f"SKU {sku}: " + json.dumps({k: h.get(k) for k in SALE_KEYS}, default=str))
         print(f"   all keys: {sorted(h.keys())}")
+    if FILTERS:
+        base = onbuy._send("GET", f"{BASE_URL}/listings", what="listing count", params={"site_id": onbuy.site_id, "limit": 1, "offset": 0}, timeout=60)
+        bm = base.json().get("metadata") if base.status_code == 200 else None
+        print(f"FILTER baseline (no filter): HTTP {base.status_code} metadata {bm}")
+        for spec in FILTERS:
+            name, value = spec.split("=", 1)
+            r = onbuy._send("GET", f"{BASE_URL}/listings", what=f"listing filter {name}",
+                            params={"site_id": onbuy.site_id, "limit": 1, "offset": 0, f"filter[{name}]": value}, timeout=60)
+            try:
+                b = r.json()
+            except ValueError:
+                b = {}
+            res = b.get("results") if isinstance(b, dict) else None
+            print(f"FILTER {name}={value}: HTTP {r.status_code} metadata {b.get('metadata') if isinstance(b, dict) else None} results {len(res) if isinstance(res, list) else res} {'' if r.status_code == 200 else r.text[:200]}")
     if not SWEEP:
         return
     listings, short, meta, pages = sweep(onbuy)
