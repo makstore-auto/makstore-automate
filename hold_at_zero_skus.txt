@@ -11,3 +11,6 @@
 9152093171141-zzz  # row = Mersoco orange Bluetooth vinyl player; page = generic belt-driven vinyl turntable
 0784922655103-zzz  # row = Pregnacare Conception Support for Couples; page = a generic fertility supplement for men and women (brand unclear)
 0197498429441-zzz-51  # row = Poly Blackwire 5220 with USB-A; page = Poly Blackwire 5220 with USB-C
+# 2026-10-12 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+704201810368  # Sheet1 row 841: row = 21V Oscillating Multi Tool Cordless Sander Sc | page = 4D 16-Line Laser Level 360 Green Auto Self Le
+237168880261  # Sheet1 row 4828: row = Warrior Motorcycle Extra Heavy Duty Rear Padd | page = 1000W Omelette Maker Electric Non-Stick Deep
