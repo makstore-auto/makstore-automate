@@ -1,1 +1,11 @@
 # one SKU per line; the sync skips pushes for protected SKUs (repair holds)
+# 2026-10-12 borderline flags (same type, other model/spec/brand): the user ordered them FROZEN at stock 0, not deleted - release only after the page/row is fixed
+0078592514311-zzz-55  # row = ride-on wiggle car; page = generic toy car with seat and steering wheel (may be another toy)
+0505669083352-zzz-22  # row = non-stick stainless cooking pot with lid; page = 8 litre stainless stock pot
+7659816864141-zzz-19  # row = lumbar seat pad; page = winter fleece chair cushion
+0757510897841-zzz-14  # row = foldable clothes rail (Hangaway); page = portable folding airer rack
+9070919950230-zzz-12  # row = Brazilian shaver (B); page = women's 2-in-1 shaver, Blue (model/colour differs)
+0050036405577-zzz-23  # row = generic fitness smart watch; page = Blackview smart watch
+9152093171141-zzz  # row = Mersoco orange Bluetooth vinyl player; page = generic belt-driven vinyl turntable
+0784922655103-zzz  # row = Pregnacare Conception Support for Couples; page = a generic fertility supplement for men and women (brand unclear)
+0197498429441-zzz-51  # row = Poly Blackwire 5220 with USB-A; page = Poly Blackwire 5220 with USB-C
