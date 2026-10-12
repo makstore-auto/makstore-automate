@@ -11,8 +11,9 @@ For every row with a cost it asks the sync's own decision (pricing_probe.decisio
   raise  the price is below the formula                                       -> formula price
   hold   the price is OUTLIER_RATIO x the formula or more (a cost misread or a price typo - lowering it could sell at a loss): listed, never touched
   ok     already on the formula (within a penny)
-  skip   no cost / no price, a typed Profit % or Fee % (the row's own override stays exactly as typed), a Buy Box-defended SKU (priced below the sheet on purpose),
-         a frozen wrong-content listing (protected_skus.txt), an Amazon-tab price raised by hand (the user's 2026-10-07 rule: it stays)
+  skip   no cost / no price, a typed Profit % or Fee % (the row's own override stays exactly as typed), a frozen wrong-content listing (protected_skus.txt),
+         an Amazon-tab price raised by hand (the user's 2026-10-07 rule: it stays)
+A Buy Box-defended SKU (BuyBox tab) is evened like any other row: only its SHEET price moves; the defense keeps repricing the live listing below it as before.
 It writes Selling Price (£), Profit % and Fee % exactly like the sync does (so the next visit reads them as its own, never as overrides) and the Price Check Flag.
 OnBuy follows through the audit (audit_price_drift fix=yes pushes the sheet's price onto drifted listings) - this tool touches the Sheet only.
 
@@ -58,12 +59,10 @@ def col_letter(n):
     return out
 
 
-def plan_row(d, *, amazon=False, defended=False, frozen=False, outlier_ratio=OUTLIER_RATIO, tol=TOL):
+def plan_row(d, *, amazon=False, frozen=False, outlier_ratio=OUTLIER_RATIO, tol=TOL):
     """(action, note) for one row, from the sync's decision `d` (None = the row has no cost). See the module docstring."""
     if d is None:
         return "skip", "no cost"
-    if defended:
-        return "skip", "Buy Box-defended (priced below the sheet on purpose)"
     if frozen:
         return "skip", "frozen wrong-content listing"
     if d["profit_override"] is not None or d["fee_override"] is not None:
@@ -145,9 +144,10 @@ def analyse_tab(ws, defended, frozen):
         c = cells_of(r)
         sku = c("SKU")
         d = decision(c, mirror.get(sku, {}), amazon)
-        action, note = plan_row(d, amazon=amazon, defended=sku.replace(",", "").strip() in defended,
-                                frozen=held_skus.is_held(sku, frozen))
-        out.append({"n": n, "sku": sku, "title": c("Title"), "action": action, "note": note, "d": d,
+        action, note = plan_row(d, amazon=amazon, frozen=held_skus.is_held(sku, frozen))
+        is_defended = sku.replace(",", "").strip() in defended
+        out.append({"n": n, "sku": sku, "title": c("Title"), "action": action, "note": note + (" | Buy Box-defended" if is_defended and action != "skip" else ""),
+                    "defended": is_defended, "d": d,
                     "stock": int(_num(c("Stock"))), "status": c("Sync Status"),
                     "old": {k: c(k) for k in ("Selling Price (£)", "Profit %", "Fee %", "Price Check Flag")}})
     return out, (ix, values)
@@ -166,7 +166,8 @@ def report(ws_title, rows, amazon):
         ratios = [(r["d"]["existing"] / r["d"]["formula_price"] if act == "lower" else r["d"]["formula_price"] / r["d"]["existing"]) for r in sel]
         buckets = Counter(_bucket(x) for x in ratios)
         live = sum(1 for r in sel if r["stock"] > 0)
-        print(f"  {act.upper()}: {len(sel)} rows ({live} in stock) | median {act} {abs(statistics.median(ratios) - 1) * 100:.1f}%, "
+        defended_n = sum(1 for r in sel if r.get("defended"))
+        print(f"  {act.upper()}: {len(sel)} rows ({live} in stock, {defended_n} Buy Box-defended) | median {act} {abs(statistics.median(ratios) - 1) * 100:.1f}%, "
               f"mean {abs(statistics.mean(ratios) - 1) * 100:.1f}%, max {abs(max(ratios) - 1) * 100:.1f}% | by size: {dict(buckets)}")
         if act == "lower":
             labels = Counter(matched(r["d"])[0] for r in sel)

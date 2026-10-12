@@ -71,10 +71,10 @@ def test_a_typed_fee_percent_stays_exactly_as_typed():
     assert em.plan_row(d)[0] == "skip"
 
 
-def test_defended_and_frozen_rows_are_never_touched():
+def test_frozen_wrong_content_listings_are_never_touched():
     d = decide(**{"Selling Price (£)": f"{schedule_price(30) * 1.4:.2f}"})
-    assert em.plan_row(d, defended=True)[0] == "skip"
-    assert em.plan_row(d, frozen=True)[0] == "skip"
+    assert em.plan_row(d, frozen=True) == ("skip", "frozen wrong-content listing")
+    assert em.plan_row(d)[0] == "lower"
 
 
 def test_an_extreme_outlier_is_held_for_review_not_lowered():
@@ -223,6 +223,35 @@ def test_a_row_that_moved_is_not_written():
     ws.values[1], ws.values[2] = ws.values[2], ws.values[1]                                     # rows swapped under us: SKUs no longer match their snapshot rows
     n_written, n_skipped = em.apply_tab(ws, targets_for([80.0, 90.0]), snap)
     assert n_written == 0 and n_skipped == 2 and ws.writes == []
+
+
+# ---------------------------------------------------------------- analyse_tab on a whole (fake) worksheet
+class ReadSheet:
+    def __init__(self, title, values):
+        self.title, self._values = title, values
+
+    def get_all_values(self):
+        return self._values
+
+
+def test_analyse_tab_plans_every_row_labels_defended_ones_and_skips_frozen_ones(monkeypatch):
+    monkeypatch.setattr(em.supabase_db, "fetch_existing_fields", lambda skus: {})
+    sched = round(schedule_price(30), 2)
+    header = ["SKU", "Title", "Cost Price (£)", "Shipping Cost (£)", "Selling Price (£)", "Profit %", "Fee %", "Category", "Stock", "Sync Status"]
+
+    def line(sku, price, cost="30"):
+        return [sku, "T " + sku, cost, "", str(price), "", "", "", "5", "Synced"]
+
+    ws = ReadSheet("Sheet1", [header, line("A", sched * 1.4), line("B", sched), line("C", sched * 1.4), line("D", sched * 1.4), line("E", sched * 3), line("F", 50, cost=""),
+                              [""] * len(header)])
+    rows, (ix, values) = em.analyse_tab(ws, defended={"C"}, frozen={"D"})
+    by = {r["sku"]: r for r in rows}
+    assert sorted(by) == ["A", "B", "C", "D", "E", "F"]                                         # the blank line is no row
+    assert [by[s]["action"] for s in "ABCDEF"] == ["lower", "ok", "lower", "skip", "hold", "skip"]
+    assert by["C"]["defended"] and "Buy Box-defended" in by["C"]["note"]                        # evened like any other row, labelled
+    assert not by["A"]["defended"] and by["A"]["n"] == 2 and by["F"]["n"] == 7                  # sheet row numbers (header = row 1)
+    assert by["D"]["note"] == "frozen wrong-content listing" and by["F"]["note"] == "no cost"
+    assert ix["Selling Price (£)"] == 4 and values[0] == header
 
 
 # ---------------------------------------------------------------- the report helpers
