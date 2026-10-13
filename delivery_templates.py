@@ -185,6 +185,16 @@ def main():
         print(f"shared sweep: {len(listings)} listings")
     for line in census(listings, classes):
         print(line)
+    # the listings that carry their OWN handling time on top of the template (for the user to review - never changed here)
+    own = [it for it in listings if str((it or {}).get("handling_time") or "0").strip() not in ("0", "")]
+    with open("handling_times.csv", "w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(["sku", "supplier", "handling_time_days", "delivery_template_id", "price", "stock", "created_at", "onbuy_name"])
+        for it in sorted(own, key=lambda i: (-(num(i.get("handling_time"), int) or 0), str(i.get("sku")))):
+            sku = str(it.get("sku") or "").strip()
+            w.writerow([sku, classes.get(sku, "legacy"), it.get("handling_time"), it.get("delivery_template_id"), it.get("price"), it.get("stock"),
+                        str(it.get("created_at") or "")[:10], str(it.get("name") or "")[:90]])
+    print(f"listings with their own handling time: {len(own)} -> handling_times.csv")
     moves = plan(listings, classes)
     by = Counter((m[1], m[2] or "none", m[3]) for m in moves)
     print(f"TO MOVE: {len(moves)} listing(s): " + ", ".join(f"{c} {cur}->{want}: {n}" for (c, cur, want), n in by.most_common()))

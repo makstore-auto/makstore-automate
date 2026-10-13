@@ -64,5 +64,7 @@ jobs:
         if: always()
         with:
           name: delivery-template-plan
-          path: delivery_template_plan.csv
+          path: |
+            delivery_template_plan.csv
+            handling_times.csv
           if-no-files-found: ignore
