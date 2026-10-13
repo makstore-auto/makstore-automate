@@ -1,0 +1,36 @@
+name: eBay Bulk Probe (read-only)
+
+# Can this application fetch eBay items in bulk (Browse getItems, 20 per call) and what does one call cost? Reads the sheet for item ids, calls eBay twice,
+# writes nothing anywhere. No OnBuy call, so it stays outside the onbuy-api group.
+
+on:
+  workflow_dispatch:
+    inputs:
+      item_ids:
+        description: "Legacy eBay item ids, comma-separated (empty = the first N in-stock eBay rows of the sheet)"
+        required: false
+        default: ""
+      n:
+        description: "How many items to fetch in the one bulk call (max 20)"
+        required: false
+        default: "10"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Probe
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
+          EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
+          ITEM_IDS: ${{ inputs.item_ids }}
+          N: ${{ inputs.n }}
+        run: python -u ebay_bulk_probe.py
