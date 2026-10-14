@@ -213,8 +213,10 @@ jobs:
           ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
         run: python -u sale_guard.py
 
-      # User 2026-10-13: every listing on the delivery template of its supplier (eBay rows -> the eBay template, Amazon rows -> the Amazon template,
-      # the rest stays on the default). The one-off move was done on 2026-10-13; this keeps the listings created since then right. Shared sweep, no extra reads.
+      # User 2026-10-13: every listing on the delivery template of its supplier (eBay rows -> the eBay template, Amazon rows -> the Amazon template; user
+      # 2026-10-14: the semi store's CSV uploads = AliExpress rows -> the AliExpress template; legacy listings stay put). A sheet-sourced listing's own handling
+      # time is cleared so the template alone decides (the semi CSV sets 5 days on every upload; user 2026-10-13: "move them according to their suppliers").
+      # The one-off moves were done on 2026-10-13/14; this keeps the listings created since then right. Shared sweep, one semi-sheet read.
       - name: Delivery templates (new listings onto their supplier's template)
         if: ${{ !cancelled() }}
         continue-on-error: true
@@ -223,6 +225,9 @@ jobs:
           LISTINGS_CACHE: "listings_cache.json"
           TEMPLATE_EBAY: ${{ vars.DELIVERY_TEMPLATE_EBAY || '35109' }}
           TEMPLATE_AMAZON: ${{ vars.DELIVERY_TEMPLATE_AMAZON || '22069' }}
+          TEMPLATE_ALI: ${{ vars.DELIVERY_TEMPLATE_ALI || '43190' }}
+          SEMI_SHEET_NAME: ${{ vars.SEMI_SHEET_NAME || 'Makstore_Feed_Master' }}
+          CLEAR_HANDLING: ${{ format('{0}', vars.DELIVERY_CLEAR_HANDLING) != '0' }}
           MAX_CHANGES: "3000"
           SAMPLE: "5"
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}

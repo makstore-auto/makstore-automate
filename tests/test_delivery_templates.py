@@ -1,5 +1,6 @@
 """delivery_templates.py - every listing on the delivery template of its supplier (user 2026-10-13): eBay rows -> the eBay template, Amazon rows -> the Amazon
-template, everything else (legacy / AliExpress catalogue) stays where it is; with CLEAR_HANDLING a sheet-sourced listing's own handling time is taken off."""
+template, AliExpress rows (the semi sheet) -> the AliExpress template, everything else (legacy) stays where it is; with CLEAR_HANDLING a sheet-sourced
+listing's own handling time is taken off."""
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -89,7 +90,50 @@ def test_num_tolerates_strings_and_blanks():
     assert dt.own_handling({"handling_time": "5"}) == 5 and dt.own_handling({"handling_time": None}) == 0 and dt.own_handling({}) == 0
 
 
+def test_aliexpress_listings_go_on_the_aliexpress_template_when_one_is_configured():
+    assert dt.wanted_template("ali", "35109", "22069", "43190") == "43190"
+    assert dt.wanted_template("ali", "35109", "22069", "") is None                     # no id = the Ali rule is off
+    listings = [listing("S1", 22069, handling=5), listing("S2", 43190, handling=0), listing("S3", 43190, handling="5"), listing("L1", 22069, handling=5)]
+    moves = dt.plan(listings, {"S1": "ali", "S2": "ali", "S3": "ali"}, "35109", "22069", clear_handling=True, ali="43190")
+    assert [(m[0], m[2], m[3], m[6], m[7]) for m in moves] == [("S1", "22069", "43190", 5, 0), ("S3", "43190", "43190", 5, 0)]   # L1: supplier unknown
+    assert dt.plan(listings, {"S1": "ali"}, "35109", "22069", ali="") == []            # no Ali template configured: nothing moves
+
+
+def test_semi_sheet_rows_are_classified_by_their_supplier_column_or_their_link():
+    values = [["SKU", "Supplier URL", "Supplier", "Status"],
+              ["111", "https://www.aliexpress.com/item/1.html", "AliExpress", "ACTIVE"],
+              ["222", "https://www.ebay.co.uk/itm/2", "", "ACTIVE"],
+              ["333", "https://www.aliexpress.com/item/3.html", "", "ACTIVE"],
+              ["", "https://www.aliexpress.com/item/4.html", "AliExpress", "ACTIVE"],
+              ["111", "https://www.ebay.co.uk/itm/9", "eBay", "ACTIVE"],
+              ["4,44"]]
+    book = SimpleNamespace(sheet1=SimpleNamespace(title="Sheet1", get_all_values=lambda: values))
+    assert dt.semi_classes(book) == {"111": "ali", "222": "ebay", "333": "ali", "444": "none"}
+
+
+def test_the_full_sheets_row_wins_and_an_unreadable_semi_sheet_is_only_a_warning(capsys):
+    semi_values = [["SKU", "Supplier URL", "Supplier"], ["E1", "https://www.aliexpress.com/item/1.html", "AliExpress"], ["S1", "https://www.aliexpress.com/item/2.html", ""]]
+    book = SimpleNamespace(sheet1=SimpleNamespace(title="Sheet1", get_all_values=lambda: semi_values))
+    client = SimpleNamespace(open=lambda name: book)
+    assert dt.add_semi_classes({"E1": "ebay"}, client, "Makstore_Feed_Master") == {"E1": "ebay", "S1": "ali"}
+
+    def _boom(name):
+        raise RuntimeError("no access")
+
+    assert dt.add_semi_classes({"E1": "ebay"}, SimpleNamespace(open=_boom), "Makstore_Feed_Master") == {"E1": "ebay"}
+    assert "WARNING: semi sheet" in capsys.readouterr().out
+    assert dt.add_semi_classes({"E1": "ebay"}, SimpleNamespace(open=_boom), "") == {"E1": "ebay"}      # no semi sheet configured = nothing read
+
+
+def test_the_nightly_step_names_the_ali_template_and_the_semi_sheet_and_clears_own_handling_times():
+    text = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "nightly_reconcile.yml").read_text(encoding="utf-8")
+    assert "TEMPLATE_ALI: ${{ vars.DELIVERY_TEMPLATE_ALI || '%s' }}" % "43190" in text
+    assert "SEMI_SHEET_NAME: ${{ vars.SEMI_SHEET_NAME || '%s' }}" % "Makstore_Feed_Master" in text
+    assert "CLEAR_HANDLING: ${{ format('{0}', vars.DELIVERY_CLEAR_HANDLING) != '0' }}" in text
+
+
 def test_the_workflow_is_plan_by_default_and_serialised_with_the_other_onbuy_jobs():
     text = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "delivery_templates.yml").read_text(encoding="utf-8")
     assert "group: onbuy-api" in text and 'default: "plan"' in text and "python -u delivery_templates.py" in text
     assert "CLEAR_HANDLING: ${{ inputs.clear_handling }}" in text
+    assert "TEMPLATE_ALI: ${{ inputs.template_ali }}" in text and "SEMI_SHEET_NAME: ${{ inputs.semi_sheet }}" in text

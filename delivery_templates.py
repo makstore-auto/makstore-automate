@@ -1,5 +1,6 @@
 """Put every listing on the delivery template of its supplier (user 2026-10-13): eBay-sourced listings on the eBay template, Amazon-sourced on the Amazon
-template, everything else (the legacy / AliExpress catalogue) stays where it is. The templates carry the handling and delivery times the user set on the
+template, AliExpress-sourced (the semi store's CSV uploads, named by the semi sheet - user 2026-10-14) on the AliExpress template; everything else (the
+legacy catalogue, no sheet row anywhere) stays where it is. The templates carry the handling and delivery times the user set on the
 OnBuy dashboard; this tool only ASSIGNS listings to them - and, with CLEAR_HANDLING=1, takes a listing's OWN handling time off (sets it to 0) so the
 template alone decides (user 2026-10-13: "move them according to their respective suppliers").
 
@@ -10,8 +11,9 @@ MODE=test: ONE PUT /v2/listings/by-sku for TEST_SKU carrying the listing's own p
 CLEAR_HANDLING=1), then a filtered read-back: proves whether the API accepts the field (only that listing changes).
 MODE=apply: batched PUTs (500 per call; the listing's own price and stock, only the template / handling change) for every listing that is off its
 supplier's template or (CLEAR_HANDLING) carries its own handling time, then a read-back of a sample. MAX_CHANGES caps one run.
-Env: TEMPLATE_EBAY, TEMPLATE_AMAZON (template ids - test/apply refuse without them), CLEAR_HANDLING, SHEET_NAME, TEST_SKU, MAX_CHANGES (3000), SAMPLE (12),
-LISTINGS_CACHE. Prints SKUs, template ids, handling times and counts - never a cost."""
+Env: TEMPLATE_EBAY, TEMPLATE_AMAZON, TEMPLATE_ALI (template ids - test/apply refuse without one), CLEAR_HANDLING, SHEET_NAME, SEMI_SHEET_NAME (the semi
+store's sheet: its rows are AliExpress-sourced by their Supplier column / link; blank = full sheet only; unreadable = warning, the Ali rule just does not
+apply that run), TEST_SKU, MAX_CHANGES (3000), SAMPLE (12), LISTINGS_CACHE. Prints SKUs, template ids, handling times and counts - never a cost."""
 import csv
 import json
 import os
@@ -31,12 +33,14 @@ SHEET_NAME = os.getenv("SHEET_NAME") or "Makstore_Full_Feed_Master"
 MODE = (os.getenv("MODE") or "plan").strip().lower()
 TEMPLATE_EBAY = (os.getenv("TEMPLATE_EBAY") or "").strip()
 TEMPLATE_AMAZON = (os.getenv("TEMPLATE_AMAZON") or "").strip()
+TEMPLATE_ALI = (os.getenv("TEMPLATE_ALI") or "").strip()
+SEMI_SHEET_NAME = (os.getenv("SEMI_SHEET_NAME") or "").strip()      # the semi store's sheet (CSV uploads, AliExpress rows) - its SKUs are sheet-sourced too
 CLEAR_HANDLING = (os.getenv("CLEAR_HANDLING") or "").strip().lower() in ("1", "yes", "true")
 TEST_SKU = (os.getenv("TEST_SKU") or "").strip()
 MAX_CHANGES = int(os.getenv("MAX_CHANGES") or "3000")
 SAMPLE = int(os.getenv("SAMPLE") or "12")
 BATCH = 500
-SHEET_SOURCED = ("ebay", "amazon")          # the classes whose supplier we know - the only ones whose handling time may be cleared
+SHEET_SOURCED = ("ebay", "amazon", "ali")   # the classes whose supplier we know - the only ones whose handling time may be cleared
 
 
 def classify(url):
@@ -53,12 +57,14 @@ def classify(url):
     return "other"
 
 
-def wanted_template(cls, ebay=TEMPLATE_EBAY, amazon=TEMPLATE_AMAZON):
+def wanted_template(cls, ebay=TEMPLATE_EBAY, amazon=TEMPLATE_AMAZON, ali=TEMPLATE_ALI):
     """The template a listing of this supplier class belongs on, or None (leave it where it is)."""
     if cls == "ebay" and ebay:
         return str(ebay)
     if cls == "amazon" and amazon:
         return str(amazon)
+    if cls == "ali" and ali:
+        return str(ali)
     return None
 
 
@@ -67,7 +73,7 @@ def own_handling(it):
     return num((it or {}).get("handling_time"), int) or 0
 
 
-def plan(listings, classes, ebay=TEMPLATE_EBAY, amazon=TEMPLATE_AMAZON, clear_handling=False):
+def plan(listings, classes, ebay=TEMPLATE_EBAY, amazon=TEMPLATE_AMAZON, clear_handling=False, ali=TEMPLATE_ALI):
     """-> [(sku, cls, current template, wanted template, price, stock, current handling, wanted handling or None)] for every listing that is off its
     supplier's template or, with clear_handling, carries its own handling time while its supplier is known (sheet-sourced)."""
     out = []
@@ -77,7 +83,7 @@ def plan(listings, classes, ebay=TEMPLATE_EBAY, amazon=TEMPLATE_AMAZON, clear_ha
         if not sku:
             continue
         cls = classes.get(sku, "legacy")
-        want = wanted_template(cls, ebay, amazon)
+        want = wanted_template(cls, ebay, amazon, ali)
         cur = str(it.get("delivery_template_id") or "").strip()
         cur_h = own_handling(it)
         want_h = 0 if clear_handling and cls in SHEET_SOURCED and cur_h != 0 else None
@@ -167,6 +173,47 @@ def sheet_classes(book):
     return classes
 
 
+def semi_classes(book):
+    """{sku: supplier class} from the semi store's sheet (its first tab): the Supplier column the semi sync fills, else the row's link."""
+    classes = {}
+    ws = book.sheet1
+    values = with_retry(ws.get_all_values, what=f"read semi {ws.title}", max_attempts=3)
+    if not values:
+        return classes
+    h = [str(x).strip() for x in values[0]]
+    if "SKU" not in h:
+        raise ValueError(f"semi sheet tab {ws.title!r} has no SKU column")
+    i_s = h.index("SKU")
+    i_u = h.index("Supplier URL") if "Supplier URL" in h else None
+    i_p = h.index("Supplier") if "Supplier" in h else None
+    for r in values[1:]:
+        sku = str(r[i_s]).replace(",", "").strip() if i_s < len(r) else ""
+        if not sku:
+            continue
+        supplier = str(r[i_p]).strip().lower() if i_p is not None and i_p < len(r) else ""
+        url = r[i_u] if i_u is not None and i_u < len(r) else ""
+        classes.setdefault(sku, {"aliexpress": "ali", "ebay": "ebay", "amazon": "amazon"}.get(supplier) or classify(url))
+    return classes
+
+
+def add_semi_classes(classes, client, name=SEMI_SHEET_NAME):
+    """Merge the semi sheet's SKUs into classes (the full sheet's row wins when a SKU sits in both). Unreadable sheet = a warning, nothing else."""
+    if not name:
+        return classes
+    try:
+        semi = semi_classes(with_retry(lambda: client.open(name), what="semi sheet open", max_attempts=3))
+    except Exception as exc:  # noqa: BLE001 - the semi sheet is optional: without it the Ali rule simply does not apply this run
+        print(f"WARNING: semi sheet {name!r} not read ({str(exc)[:160]}) - AliExpress-sourced listings cannot be recognised this run")
+        return classes
+    added = 0
+    for sku, cls in semi.items():
+        if sku not in classes:
+            classes[sku] = cls
+            added += 1
+    print(f"semi sheet {name!r}: {len(semi)} SKUs by supplier {dict(Counter(semi.values()).most_common())}, {added} added (not in the full sheet)")
+    return classes
+
+
 def write_handling_csv(listings, classes, path="handling_times.csv"):
     """The listings that carry their OWN handling time (for review; never changed by the plan)."""
     own = [it for it in listings if own_handling(it) != 0]
@@ -184,22 +231,23 @@ def main():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
         json.loads(os.environ["GOOGLE_CREDENTIALS"]),
         ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
-    book = with_retry(lambda: gspread.authorize(creds).open(SHEET_NAME), what="sheet open", max_attempts=3)
-    classes = sheet_classes(book)
-    print(f"MODE {MODE} | templates: eBay {TEMPLATE_EBAY or '-'}, Amazon {TEMPLATE_AMAZON or '-'} | clear own handling time: {'yes' if CLEAR_HANDLING else 'no'} | "
-          f"sheet SKUs by supplier: {dict(Counter(classes.values()).most_common())}")
+    client = gspread.authorize(creds)
+    book = with_retry(lambda: client.open(SHEET_NAME), what="sheet open", max_attempts=3)
+    classes = add_semi_classes(sheet_classes(book), client)
+    print(f"MODE {MODE} | templates: eBay {TEMPLATE_EBAY or '-'}, Amazon {TEMPLATE_AMAZON or '-'}, AliExpress {TEMPLATE_ALI or '-'} | "
+          f"clear own handling time: {'yes' if CLEAR_HANDLING else 'no'} | sheet SKUs by supplier: {dict(Counter(classes.values()).most_common())}")
     onbuy = OnBuyClient()
     if not onbuy.authenticate():
         raise SystemExit("OnBuy auth failed")
 
     if MODE == "test":
-        if not TEST_SKU or not (TEMPLATE_EBAY or TEMPLATE_AMAZON):
+        if not TEST_SKU or not (TEMPLATE_EBAY or TEMPLATE_AMAZON or TEMPLATE_ALI):
             raise SystemExit("test needs TEST_SKU and a template id")
         before = onbuy.get_listing(TEST_SKU)
         if not before:
             raise SystemExit(f"{TEST_SKU}: no listing")
         cls = classes.get(TEST_SKU, "legacy")
-        want = wanted_template(cls) or TEMPLATE_EBAY or TEMPLATE_AMAZON
+        want = wanted_template(cls) or TEMPLATE_EBAY or TEMPLATE_AMAZON or TEMPLATE_ALI
         want_h = 0 if CLEAR_HANDLING else None
         print(f"{TEST_SKU}: class {cls} | before: template {before.get('delivery_template_id')} handling {before.get('handling_time')} price {before.get('price')} "
               f"stock {before.get('stock')} | want template {want}, handling {'0' if want_h == 0 else 'unchanged'}")
