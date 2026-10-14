@@ -1,0 +1,107 @@
+name: Semi Upload Watch (AliExpress uploads onto their template)
+
+# User 2026-10-14 ("going to export Makstore semi auto products to OnBuy, as they are all AliExpress products make sure about the delivery template";
+# then "Uploaded, run the move now"): OnBuy creates the semi store's CSV uploads in its own time, so every hour a READ-ONLY probe (8 GET calls, no
+# sweep - semi_upload_probe.py) asks whether any uploaded listing exists off the AliExpress template or with the CSV's own 5-day handling time. Only
+# then does the move run: the nightly's own step (delivery_templates.py MODE=apply, CLEAR_HANDLING on - full sweep + batched PUTs). The move is
+# skipped while another OnBuy job is running or queued, so it can never take the one pending slot from a scheduled nightly or sync; the probe
+# alone never touches that slot. Off switch: repo variable SEMI_UPLOAD_WATCH=0. Template ids / sheet: DELIVERY_TEMPLATE_* / SEMI_SHEET_NAME variables.
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+    inputs:
+      force_move:
+        description: "yes = run the move even when the probe finds nothing (and even when another OnBuy job is active)"
+        required: false
+        default: "no"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  probe:
+    if: ${{ format('{0}', vars.SEMI_UPLOAD_WATCH) != '0' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      found: ${{ steps.probe.outputs.found }}
+      live: ${{ steps.probe.outputs.live }}
+      busy: ${{ steps.busy.outputs.busy }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Probe (read-only, 8 GET calls)
+        id: probe
+        env:
+          SEMI_SHEET_NAME: ${{ vars.SEMI_SHEET_NAME || 'Makstore_Feed_Master' }}
+          TEMPLATE_ALI: ${{ vars.DELIVERY_TEMPLATE_ALI || '43190' }}
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          ONBUY_USE_SANDBOX: ${{ vars.ONBUY_USE_SANDBOX }}
+          ONBUY_CONSUMER_KEY: ${{ secrets.ONBUY_CONSUMER_KEY }}
+          ONBUY_SECRET_KEY: ${{ secrets.ONBUY_SECRET_KEY }}
+          ONBUY_TEST_CONSUMER_KEY: ${{ secrets.ONBUY_TEST_CONSUMER_KEY }}
+          ONBUY_TEST_SECRET_KEY: ${{ secrets.ONBUY_TEST_SECRET_KEY }}
+          ONBUY_SELLER_ID: ${{ secrets.ONBUY_SELLER_ID }}
+          ONBUY_SITE_ID: ${{ secrets.ONBUY_SITE_ID }}
+        run: python -u semi_upload_probe.py
+      - name: Is another OnBuy job running or queued? (then the move waits for the next hour)
+        id: busy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh run list -R "$GITHUB_REPOSITORY" --limit 40 --json status,workflowName,databaseId \
+              --jq "[.[] | select((.status==\"queued\" or .status==\"in_progress\" or .status==\"waiting\" or .status==\"pending\" or .status==\"requested\") and .databaseId != $GITHUB_RUN_ID and .workflowName != \"Tests\")] | length")
+          echo "other active runs: $n"
+          if [ "$n" -gt 0 ]; then echo "busy=yes" >> "$GITHUB_OUTPUT"; else echo "busy=no" >> "$GITHUB_OUTPUT"; fi
+
+  move:
+    needs: probe
+    if: ${{ (needs.probe.outputs.found == 'true' && needs.probe.outputs.busy == 'no') || inputs.force_move == 'yes' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    concurrency:
+      group: onbuy-api
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Move the uploaded listings onto the AliExpress template (handling override cleared)
+        env:
+          MODE: apply
+          CLEAR_HANDLING: "1"
+          TEMPLATE_EBAY: ${{ vars.DELIVERY_TEMPLATE_EBAY || '35109' }}
+          TEMPLATE_AMAZON: ${{ vars.DELIVERY_TEMPLATE_AMAZON || '22069' }}
+          TEMPLATE_ALI: ${{ vars.DELIVERY_TEMPLATE_ALI || '43190' }}
+          SEMI_SHEET_NAME: ${{ vars.SEMI_SHEET_NAME || 'Makstore_Feed_Master' }}
+          MAX_CHANGES: "3000"
+          SAMPLE: "5"
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          ONBUY_USE_SANDBOX: ${{ vars.ONBUY_USE_SANDBOX }}
+          ONBUY_CONSUMER_KEY: ${{ secrets.ONBUY_CONSUMER_KEY }}
+          ONBUY_SECRET_KEY: ${{ secrets.ONBUY_SECRET_KEY }}
+          ONBUY_TEST_CONSUMER_KEY: ${{ secrets.ONBUY_TEST_CONSUMER_KEY }}
+          ONBUY_TEST_SECRET_KEY: ${{ secrets.ONBUY_TEST_SECRET_KEY }}
+          ONBUY_SELLER_ID: ${{ secrets.ONBUY_SELLER_ID }}
+          ONBUY_SITE_ID: ${{ secrets.ONBUY_SITE_ID }}
+        run: python -u delivery_templates.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semi-upload-move
+          path: |
+            delivery_template_plan.csv
+            handling_times.csv
+          if-no-files-found: ignore

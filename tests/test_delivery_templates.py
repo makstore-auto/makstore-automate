@@ -132,6 +132,14 @@ def test_the_nightly_step_names_the_ali_template_and_the_semi_sheet_and_clears_o
     assert "CLEAR_HANDLING: ${{ format('{0}', vars.DELIVERY_CLEAR_HANDLING) != '0' }}" in text
 
 
+def test_moves_without_a_numeric_price_are_set_aside_before_batching():
+    listings = [listing("E1", 22069), listing("E2", 22069, price=None), listing("E3", 22069, price=""), listing("E4", 22069, price="0")]
+    moves = dt.plan(listings, {s: "ebay" for s in ("E1", "E2", "E3", "E4")}, "35109", "22069")
+    sendable, priceless = dt.sendable_moves(moves)
+    assert [m[0] for m in sendable] == ["E1", "E4"] and priceless == 2          # "0" is numeric (OnBuy keeps it); None / blank are not
+    assert dt.sendable_moves([]) == ([], 0)
+
+
 def test_the_workflow_is_plan_by_default_and_serialised_with_the_other_onbuy_jobs():
     text = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "delivery_templates.yml").read_text(encoding="utf-8")
     assert "group: onbuy-api" in text and 'default: "plan"' in text and "python -u delivery_templates.py" in text
