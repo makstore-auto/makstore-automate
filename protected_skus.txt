@@ -1,3 +1,4 @@
 # one SKU per line; the sync skips pushes for protected SKUs (repair holds)
 # 2026-10-12 borderline flags (same type, other model/spec/brand): the user ordered them FROZEN at stock 0, not deleted - release only after the page/row is fixed
 # 2026-10-12 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+# 2026-10-14 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
