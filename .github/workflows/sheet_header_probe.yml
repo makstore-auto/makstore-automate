@@ -14,6 +14,10 @@ on:
         description: "Worksheets, comma-separated (empty = all)"
         required: false
         default: ""
+      fix:
+        description: "Write ONE header cell back, e.g. Sheet1!A1=SKU (empty = read only)"
+        required: false
+        default: ""
 
 jobs:
   probe:
@@ -31,6 +35,7 @@ jobs:
         env:
           ROWS: ${{ inputs.rows }}
           TABS: ${{ inputs.tabs }}
+          FIX: ${{ inputs.fix }}
           SHEET_NAME: ${{ vars.SHEET_NAME }}
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
         run: python -u sheet_header_probe.py

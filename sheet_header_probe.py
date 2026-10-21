@@ -12,6 +12,7 @@ from retry_utils import with_retry
 SHEET_NAME = os.getenv("SHEET_NAME") or "Makstore_Full_Feed_Master"
 ROWS = int(os.getenv("ROWS") or "4")
 TABS = [t.strip() for t in (os.getenv("TABS") or "").split(",") if t.strip()]
+FIX = (os.getenv("FIX") or "").strip()          # "Sheet1!A1=SKU": write that one header cell back (only when it does not already hold the value)
 SAFE = ("SKU", "Title", "Supplier URL", "Status", "Sync Status", "Stock", "Category", "OPC", "ASIN", "Image URL", "Selling Price (£)")
 
 
@@ -21,6 +22,16 @@ def main():
         ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
     book = with_retry(lambda: gspread.authorize(creds).open(SHEET_NAME), what="sheet open", max_attempts=3)
     sheets = book.worksheets()
+    if FIX and "!" in FIX and "=" in FIX:
+        tab, rest = FIX.split("!", 1)
+        cell, value = rest.split("=", 1)
+        ws = book.worksheet(tab)
+        before = with_retry(lambda: ws.acell(cell).value, what=f"read {tab}!{cell}", max_attempts=3)
+        if str(before or "").strip() == value:
+            print(f"FIX: {tab}!{cell} already reads {value!r} - nothing written")
+        else:
+            with_retry(lambda: ws.update_acell(cell, value), what=f"write {tab}!{cell}", max_attempts=3)
+            print(f"FIX: {tab}!{cell} was {before!r} -> written {value!r}")
     print(f"{SHEET_NAME!r}: {len(sheets)} worksheet(s): " + ", ".join(f"{w.title} ({w.row_count}x{w.col_count}, frozen rows {w.frozen_row_count})" for w in sheets))
     for ws in sheets:
         if TABS and ws.title not in TABS:
