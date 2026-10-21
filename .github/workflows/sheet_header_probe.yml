@@ -1,0 +1,36 @@
+name: Sheet Header Probe (read-only)
+
+# Prints the header row and the first rows of every product tab, and where the SKU column is - for when a sync refuses with
+# "tab 'Sheet1' lacks ['SKU']". Reads only.
+
+on:
+  workflow_dispatch:
+    inputs:
+      rows:
+        description: "How many rows to print per tab"
+        required: false
+        default: "4"
+      tabs:
+        description: "Worksheets, comma-separated (empty = all)"
+        required: false
+        default: ""
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Header probe
+        env:
+          ROWS: ${{ inputs.rows }}
+          TABS: ${{ inputs.tabs }}
+          SHEET_NAME: ${{ vars.SHEET_NAME }}
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+        run: python -u sheet_header_probe.py
