@@ -4,3 +4,4 @@
 # 2026-10-14 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 # 2026-10-16 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 262600312901  # Amazon row 2048: row = Lazy-Leaf - Leaf Blower and Vacuum - Powerful | page = Ark Mat Lazy-Leaf Electric Leaf Blower, Garde
+# 2026-10-22 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
