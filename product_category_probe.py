@@ -79,9 +79,11 @@ def main():
             ("GET /v2/products?filter[product_codes]", f"{BASE_URL}/products", {"site_id": site, "filter[product_codes]": code, "limit": 5}),
             ("GET /v2/products?filter[product_code]", f"{BASE_URL}/products", {"site_id": site, "filter[product_code]": code, "limit": 5}),
             ("GET /v2/products?filter[query]=<code>", f"{BASE_URL}/products", {"site_id": site, "filter[query]": code, "limit": 5}),
-            ("GET /v2/products?filter[field]=product_codes&filter[query]=<code>", f"{BASE_URL}/products",
-             {"site_id": site, "filter[field]": "product_codes", "filter[query]": code, "limit": 5}),
+            ("GET /v2/products?filter[field]=product_code&filter[query]=<code>", f"{BASE_URL}/products",
+             {"site_id": site, "filter[field]": "product_code", "filter[query]": code, "limit": 5}),
             ("GET /v2/products?filter[query]=<name>", f"{BASE_URL}/products", {"site_id": site, "filter[query]": name[:60], "limit": 5}),
+            ("GET /v2/products?filter[field]=opc&filter[query]=<opc>", f"{BASE_URL}/products",
+             {"site_id": site, "filter[field]": "opc", "filter[query]": opc, "limit": 5}),
             ("GET /v2/products?filter[sku]", f"{BASE_URL}/products", {"site_id": site, "filter[sku]": sku, "limit": 5}),
             ("GET /v2/listings?filter[sku]&fields=category", f"{BASE_URL}/listings", {"site_id": site, "filter[sku]": sku, "fields": "category_id,category", "limit": 5}),
         ]
