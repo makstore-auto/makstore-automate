@@ -1,6 +1,7 @@
 """delivery_templates.py - every listing on the delivery template of its supplier (user 2026-10-13): eBay rows -> the eBay template, Amazon rows -> the Amazon
 template, AliExpress rows (the semi sheet) -> the AliExpress template, everything else (legacy) stays where it is; with CLEAR_HANDLING a sheet-sourced
 listing's own handling time is taken off."""
+import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -144,4 +145,13 @@ def test_the_workflow_is_plan_by_default_and_serialised_with_the_other_onbuy_job
     text = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "delivery_templates.yml").read_text(encoding="utf-8")
     assert "group: onbuy-api" in text and 'default: "plan"' in text and "python -u delivery_templates.py" in text
     assert "CLEAR_HANDLING: ${{ inputs.clear_handling }}" in text
-    assert "TEMPLATE_ALI: ${{ inputs.template_ali }}" in text and "SEMI_SHEET_NAME: ${{ inputs.semi_sheet }}" in text
+    assert "SEMI_SHEET_NAME: ${{ inputs.semi_sheet }}" in text
+
+
+def test_a_manual_run_takes_the_template_ids_from_its_inputs_then_the_variables_then_the_nightly_fallback():
+    text = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "delivery_templates.yml").read_text(encoding="utf-8")
+    assert "TEMPLATE_EBAY: ${{ inputs.template_ebay || vars.DELIVERY_TEMPLATE_EBAY || '35109' }}" in text
+    assert "TEMPLATE_AMAZON: ${{ inputs.template_amazon || vars.DELIVERY_TEMPLATE_AMAZON || '22069' }}" in text
+    assert "TEMPLATE_ALI: ${{ inputs.template_ali || vars.DELIVERY_TEMPLATE_ALI || '43190' }}" in text
+    for key in ("template_ebay", "template_amazon", "template_ali"):
+        assert re.search(r"      %s:\n        description: [^\n]*\n        required: false\n        default: \"\"" % key, text), key        # an empty default lets the variable apply

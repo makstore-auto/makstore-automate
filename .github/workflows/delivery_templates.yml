@@ -12,17 +12,17 @@ on:
         required: false
         default: "plan"
       template_ebay:
-        description: "Delivery template id for eBay-sourced listings"
+        description: "Delivery template id for eBay-sourced listings (empty = the DELIVERY_TEMPLATE_EBAY variable, else 35109)"
         required: false
-        default: "35109"
+        default: ""
       template_amazon:
-        description: "Delivery template id for Amazon-sourced listings"
+        description: "Delivery template id for Amazon-sourced listings (empty = the DELIVERY_TEMPLATE_AMAZON variable, else 22069)"
         required: false
-        default: "22069"
+        default: ""
       template_ali:
-        description: "Delivery template id for AliExpress-sourced listings (the semi store's uploads)"
+        description: "Delivery template id for AliExpress-sourced listings (the semi store's uploads) (empty = the DELIVERY_TEMPLATE_ALI variable, else 43190)"
         required: false
-        default: "43190"
+        default: ""
       semi_sheet:
         description: "The semi store's sheet whose rows name the AliExpress-sourced SKUs (blank = full sheet only)"
         required: false
@@ -59,9 +59,9 @@ jobs:
       - name: Delivery templates
         env:
           MODE: ${{ inputs.mode }}
-          TEMPLATE_EBAY: ${{ inputs.template_ebay }}
-          TEMPLATE_AMAZON: ${{ inputs.template_amazon }}
-          TEMPLATE_ALI: ${{ inputs.template_ali }}
+          TEMPLATE_EBAY: ${{ inputs.template_ebay || vars.DELIVERY_TEMPLATE_EBAY || '35109' }}
+          TEMPLATE_AMAZON: ${{ inputs.template_amazon || vars.DELIVERY_TEMPLATE_AMAZON || '22069' }}
+          TEMPLATE_ALI: ${{ inputs.template_ali || vars.DELIVERY_TEMPLATE_ALI || '43190' }}
           SEMI_SHEET_NAME: ${{ inputs.semi_sheet }}
           TEST_SKU: ${{ inputs.test_sku }}
           MAX_CHANGES: ${{ inputs.max_changes }}
