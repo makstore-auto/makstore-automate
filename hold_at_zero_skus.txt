@@ -25,3 +25,5 @@
 # 2026-11-20 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 # 2026-11-21 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 # 2026-11-26 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+# 2026-11-28 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+426783590192  # Sheet1 row 4345: row = For VW POLO *2009 - 2014* PLUG & PLAY Car Ste | page = 7" Wince CarPlay For VW GOLF MK5 MK6 Polo Cad
